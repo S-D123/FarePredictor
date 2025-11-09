@@ -1,0 +1,363 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fare Predictor — UI</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root{
+      --panel-w: 410px;
+      --glass: rgba(255,255,255,0.96);
+      --muted: #6b7280;
+      --accent: #0ea5e9;
+      --radius: 14px;
+      --card-shadow: 0 12px 30px rgba(2,6,23,0.12);
+    }
+    html,body { height:100%; margin:0; font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial; background:linear-gradient(180deg,#f7fbff 0%, #eef6ff 100%); color:#0f172a; }
+
+    /* Two column layout */
+    .app {
+      display: grid;
+      grid-template-columns: var(--panel-w) 1fr;
+      gap: 24px;
+      padding: 28px;
+      height: 100vh;
+      box-sizing: border-box;
+      align-items: stretch;
+    }
+
+    /* Left panel */
+    .panel {
+      background: var(--glass);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--card-shadow);
+      border: 1px solid rgba(2,6,23,0.06);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-height: 0;
+    }
+
+    .brand {
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+    .logo {
+      width:46px; height:46px; border-radius:10px;
+      background:linear-gradient(135deg,var(--accent),#0369a1);
+      display:flex; align-items:center; justify-content:center; color:white; font-weight:700;
+      box-shadow: 0 6px 18px rgba(2,6,23,0.12);
+      font-size:18px;
+    }
+    .title { font-weight:700; font-size:1.05rem; }
+    .subtitle { color:var(--muted); font-size:0.92rem; margin-top:2px; }
+
+    .fare-card {
+      background: linear-gradient(180deg, white, #fbfdff);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 6px 18px rgba(2,6,23,0.06);
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    .fare-left { display:flex; flex-direction:column; gap:6px; }
+    .fare-label { color:var(--muted); font-size:0.86rem; }
+    .fare-amount { font-size:1.6rem; font-weight:700; color:#0f172a; }
+    .fare-sub { color:var(--muted); font-size:0.85rem; }
+
+    .controls { display:flex; flex-direction:column; gap:12px; }
+    .row { display:flex; gap:8px; align-items:center; }
+    .input {
+      flex:1;
+      padding:10px 12px;
+      border-radius:10px;
+      border:1px solid rgba(2,6,23,0.06);
+      background:white;
+      font-size:0.95rem;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+    }
+
+    .vehicle-list { display:flex; gap:8px; }
+    .vehicle {
+      padding:10px 12px;
+      border-radius:10px;
+      background:linear-gradient(180deg,#fff,#fbfcff);
+      border:1px solid rgba(2,6,23,0.06);
+      cursor:pointer;
+      font-weight:600;
+      color:#0f172a;
+      display:flex; flex-direction:column; gap:4px; min-width:88px;
+      align-items:flex-start;
+    }
+    .vehicle.small { font-size:0.92rem; }
+    .vehicle .price-est { color:var(--muted); font-size:0.82rem; font-weight:500; }
+
+    .vehicle.active {
+      box-shadow: 0 8px 24px rgba(2,132,199,0.14);
+      border: 2px solid rgba(2,132,199,0.18);
+      transform: translateY(-2px);
+    }
+
+    .actions { display:flex; gap:10px; align-items:center; }
+    .btn {
+      padding:10px 14px; border-radius:10px; border:0; cursor:pointer; font-weight:700; color:white;
+      background: linear-gradient(180deg,var(--accent), #0369a1);
+      box-shadow: 0 10px 26px rgba(2,132,199,0.12);
+      transition: transform .12s ease;
+    }
+    .btn.secondary { background:transparent; color:var(--muted); font-weight:600; border:1px solid rgba(2,6,23,0.06); box-shadow:none; }
+    .btn:active { transform: translateY(1px); }
+
+    .info-mini { color:var(--muted); font-size:0.88rem; }
+
+    /* Map area */
+    .map-wrap {
+      border-radius: var(--radius);
+      overflow:hidden;
+      height:100%;
+      box-shadow: var(--card-shadow);
+      border:1px solid rgba(2,6,23,0.06);
+    }
+    #map { width:100%; height:100%; background:#e6eef8; }
+
+    /* Responsive */
+    @media (max-width:900px) {
+      .app { grid-template-columns: 1fr; padding:12px; grid-auto-rows: auto 1fr; gap:12px; }
+      .panel { order:0; }
+      .map-wrap { order:1; height:60vh; }
+    }
+
+    /* small details */
+    .coords { font-family:ui-monospace,monospace; color:var(--muted); font-size:0.82rem; }
+    .muted { color:var(--muted); font-size:0.9rem; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="panel" role="region" aria-label="fare panel">
+      <div class="brand">
+        <div class="logo">FP</div>
+        <div>
+          <div class="title">Fare Predictor</div>
+          <div class="subtitle">Estimate a taxi fare quickly</div>
+        </div>
+      </div>
+
+      <div class="fare-card" id="fareCard">
+        <div class="fare-left">
+          <div class="fare-label">Estimated fare</div>
+          <div class="fare-amount" id="fareAmount">—</div>
+          <div class="fare-sub" id="fareSub">Distance • Duration</div>
+        </div>
+        <div style="text-align:right">
+          <div class="muted">Currency</div>
+          <div style="font-weight:700; margin-top:8px; color:var(--accent)">INR</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="row">
+          <input id="pickupInput" class="input" placeholder="Tap map to set pickup (or type address)" />
+        </div>
+        <div class="row">
+          <input id="dropInput" class="input" placeholder="Tap map to set drop (or type address)" />
+        </div>
+
+        <div>
+          <div class="muted" style="margin-bottom:8px; margin-left:4px; margin-top: 4px;">Choose vehicle</div>
+          <div class="vehicle-list" id="vehicleList">
+            <div class="vehicle active" data-mult="1.0" id="veh-std">
+              <div class="small">Standard</div>
+              <div class="price-est">Low Cost</div>
+            </div>
+            <div class="vehicle" data-mult="1.4" id="veh-prem">
+              <div class="small">Premium</div>
+              <div class="price-est">Better comfort</div>
+            </div>
+            <div class="vehicle" data-mult="2.0" id="veh-x">
+              <div class="small">XL</div>
+              <div class="price-est">Larger vehicle</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <label for="passengerSelect" style="font-size:0.9rem; color:var(--muted); min-width:80px;">Passengers:</label>
+          <select id="passengerSelect" class="input" style="flex:1;">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4" selected>4</option>
+            <option value="5">5 (XL only)</option>
+            <option value="6">6 (XL only)</option>
+            <option value="7">7 (XL only)</option>
+          </select>
+        </div>
+
+        <div class="actions">
+          <button class="btn" id="estimateBtn">Estimate</button>
+          <button class="btn secondary" id="clearBtn">Clear</button>
+        </div>
+
+        <div class="info-mini">Tap map to place pickup then drop. Drag markers to fine-tune.</div>
+      </div>
+    </div>
+
+    <div class="map-wrap" aria-label="map area">
+      <div id="map"></div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Setup map
+    const map = L.map('map').setView([23.05,72.57], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+
+    let pickupMarker = null, dropMarker = null, routeLine = null;
+    const pickupInput = document.getElementById('pickupInput');
+    const dropInput = document.getElementById('dropInput');
+    const fareAmount = document.getElementById('fareAmount');
+    const fareSub = document.getElementById('fareSub');
+    const estimateBtn = document.getElementById('estimateBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const vehicleList = document.getElementById('vehicleList');
+
+    // toggle vehicle selection
+    vehicleList.addEventListener('click', (e) => {
+      const v = e.target.closest('.vehicle'); if(!v) return;
+      document.querySelectorAll('.vehicle').forEach(x=>x.classList.remove('active'));
+      v.classList.add('active');
+    });
+
+    // clicking on map: first click -> pickup, second -> drop
+    let next = 'pickup';
+    map.on('click', (e) => {
+      if(next === 'pickup') {
+        // if already exists, remove old
+        if(pickupMarker) pickupMarker.remove();
+
+        pickupMarker = L.marker(e.latlng, { draggable:true }).addTo(map).bindPopup('Pickup').openPopup();
+        pickupMarker.on('dragend', updateAfterChange);
+        pickupInput.value = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
+        next = 'drop';
+      } else {
+        if(dropMarker) dropMarker.remove();
+        dropMarker = L.marker(e.latlng, { draggable:true }).addTo(map).bindPopup('Drop').openPopup();
+        dropMarker.on('dragend', updateAfterChange);
+        dropInput.value = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
+        next = 'pickup';
+      }
+      updateAfterChange();
+    });
+
+    // updates gui/webpage's info and route after marker change
+    function updateAfterChange() {
+      const p = pickupMarker ? pickupMarker.getLatLng() : null;
+      const d = dropMarker ? dropMarker.getLatLng() : null;
+      drawRoute();
+    }
+
+    function drawRoute() {
+      if(routeLine) { routeLine.remove(); routeLine = null; }
+      if(pickupMarker && dropMarker) {
+        const a = pickupMarker.getLatLng(), b = dropMarker.getLatLng();
+        routeLine = L.polyline([a,b], { color:'#0284c7', weight:4, opacity:0.9 }).addTo(map);
+        map.fitBounds(routeLine.getBounds().pad(0.2));
+      }
+    }
+
+    function haversine(a,b){
+      const R=6371;
+      const toRad = x=>x*Math.PI/180;
+      const dLat=toRad(b.lat-a.lat), dLon=toRad(b.lng-a.lng);
+      const A=Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLon/2)**2;
+      const C=2*Math.atan2(Math.sqrt(A), Math.sqrt(1-A));
+      return R*C;
+    }
+
+    async function estimateFare(){
+      if(!pickupMarker || !dropMarker){ 
+        alert('Set both pickup and drop on the map.'); 
+        return; 
+      }
+      
+      const a = pickupMarker.getLatLng(), b = dropMarker.getLatLng();
+      const vehicleMult = Number(document.querySelector('.vehicle.active').dataset.mult || 1.0);
+      const passengers = parseInt(passengerSelect.value);
+      
+      // Useless
+      // just for showing time and distance estimates in gui
+      const dist = haversine(a,b);
+      const avgSpeed = 30; // km/h assumption
+      const durationMin = (dist/avgSpeed)*60;
+      const base = 40; // INR
+      const perKm = 12; // INR per km
+      const perMin = 1; // INR per min
+
+      const payload = {
+        pickup: {lat: a.lat, lng: a.lng},
+        drop: {lat: b.lat, lng: b.lng},
+        passengers: passengers,
+        vehicle_mult: vehicleMult
+      }
+
+      try {
+        const API_URL = window.location.origin + '/predict';
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        if (result.success) {
+          const fare = result.fare;
+          const dist = result.distance;
+          const avgSpeed = 30; // km/h
+          const durationMin = (dist / avgSpeed) * 60;
+
+          fareAmount.textContent = '₹ ' + fare.toFixed(0);
+          fareSub.textContent = `${dist.toFixed(2)} km • ${Math.round(durationMin)} min • ${passengers} pax`;
+        } else {
+          fareAmount.textContent = 'Error';
+          fareSub.textContent = result.error || 'Prediction failed';
+          alert('Prediction error: ' + (result.error || 'Unknown error'));
+        }
+        
+      } catch(error) {
+        console.error('Fetch error:', error);  // FIX: was print(e)
+        fareAmount.textContent = 'Error';
+        fareSub.textContent = 'Server unavailable';
+        alert('Cannot connect to Flask server.\n\nMake sure server.py is running:\npython server.py\n\nError: ' + error.message);
+      }
+
+    }
+
+    estimateBtn.addEventListener('click', estimateFare);
+    clearBtn.addEventListener('click', () => {
+      if(pickupMarker) { pickupMarker.remove(); pickupMarker=null; pickupInput.value=''; }
+      if(dropMarker) { dropMarker.remove(); dropMarker=null; dropInput.value=''; }
+      if(routeLine) { routeLine.remove(); routeLine=null; }
+      fareAmount.textContent = '—';
+      fareSub.textContent = 'Distance • Duration';
+      next = 'pickup';
+      map.setView([23.05,72.57], 13);
+    });
+
+    // ensure map sizing right when inside flex/grid
+    setTimeout(()=>map.invalidateSize(), 300);
+    window.addEventListener('resize', ()=>map.invalidateSize());
+  </script>
+</body>
+</html>
