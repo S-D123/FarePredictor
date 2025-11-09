@@ -305,6 +305,10 @@
         vehicle_mult: vehicleMult
       }
 
+      // Show loading state
+      fareAmount.textContent = 'Loading...';
+      fareSub.textContent = 'Calculating...';
+
       try {
         const API_URL = window.location.origin + '/predict';
         const response = await fetch(API_URL, {

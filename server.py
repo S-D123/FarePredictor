@@ -9,7 +9,7 @@ app = Flask(__name__)
 # CORS(app)  # Enable CORS for frontend requests
 
 # Load model once at startup
-MODEL_PATH = "xgb_model.joblib"
+MODEL_PATH = "xgb_model.pkl"
 model = None
 
 def load_model():
@@ -33,7 +33,8 @@ def build_features(pickup_lat, pickup_lng, drop_lat, drop_lng, passengers=1):
     Build feature DataFrame matching your model's training features.
     IMPORTANT: Update these column names to match your Real_Project.ipynb training data!
     """
-    dist_km = haversine_km(pickup_lat, pickup_lng, drop_lat, drop_lng)
+    dist_km = haversine_km(pickup_lat, pickup_lng, drop_lat, drop_lng) / 3.0
+    # if dist_km > 4 km, then fare == 118
     
     # Example features - MODIFY based on your actual model features
     features = pd.DataFrame({
@@ -66,7 +67,7 @@ def predict():
         base_prediction = model.predict(X)[0]
         
         # Apply vehicle multiplier
-        final_fare = base_prediction * vehicle_mult * 90 
+        final_fare = base_prediction * vehicle_mult * 90 * 3.0 
         # 90 => scaling factor to convert USD/INR
         
         # Return prediction
