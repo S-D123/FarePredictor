@@ -14,10 +14,29 @@ model = None
 
 def load_model():
     global model
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"Model file not found: {MODEL_PATH}")
-    model = joblib.load(MODEL_PATH)
-    print(f"✅ Model loaded: {type(model).__name__}")
+    try:
+        # Debug: Print current directory and files
+        print(f"📂 Current directory: {os.getcwd()}")
+        print(f"📂 Files in directory:")
+        for f in os.listdir('.'):
+            if os.path.isfile(f):
+                size = os.path.getsize(f) / 1024 / 1024  # MB
+                print(f"   - {f} ({size:.2f} MB)")
+            else:
+                print(f"   - {f}/ (directory)")
+        
+        # Check if model file exists
+        if not os.path.exists(MODEL_PATH):
+            raise FileNotFoundError(f"Model file not found: {MODEL_PATH}")
+        
+        # Load the model
+        model = joblib.load(MODEL_PATH)
+        print(f"✅ Model loaded successfully: {type(model).__name__}")
+    except Exception as e:
+        print(f"❌ Error loading model: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 def haversine_km(a_lat, a_lng, b_lat, b_lng):
     R = 6371.0
