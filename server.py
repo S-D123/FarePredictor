@@ -9,8 +9,10 @@ app = Flask(__name__)
 # CORS(app)  # Enable CORS for frontend requests
 
 # Load model once at startup
-MODEL_PATH = "xgb_model.pkl"
+MODEL_PATH = "./xgb_model.pkl"
 model = None
+
+
 
 def load_model():
     print("load model called")
@@ -45,6 +47,10 @@ def build_features(pickup_lat, pickup_lng, drop_lat, drop_lng, passengers=1):
         'distance': dist_km
     }, index=[0])
     return features
+
+@app.route("/listdir")
+def listdir():
+    return os.listdir()
 
 @app.route('/predict', methods=['POST'])
 def predict():
