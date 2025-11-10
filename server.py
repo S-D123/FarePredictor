@@ -1,3 +1,4 @@
+from pathlib import Path
 from flask import Flask, request, jsonify, render_template
 # from flask_cors import CORS
 import joblib
@@ -9,19 +10,10 @@ app = Flask(__name__)
 # CORS(app)  # Enable CORS for frontend requests
 
 # Load model once at startup
-MODEL_PATH = "./xgb_model.pkl"
-model = None
-
-
-
-def load_model():
-    print("load model called")
-    print(os.listdir())
-    global model
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"Model file not found: {MODEL_PATH}")
-    model = joblib.load(MODEL_PATH)
-    print(f"✅ Model loaded: {type(model).__name__}")
+MODEL_PATH = Path(__file__).parent / "xgb_model.joblib"
+if not MODEL_PATH.exists():
+    raise FileNotFoundError(f"Model file not found: {MODEL_PATH}")
+model = joblib.load(MODEL_PATH)
 
 def haversine_km(a_lat, a_lng, b_lat, b_lng):
     R = 6371.0
@@ -107,7 +99,6 @@ def home():
     return render_template('index.html')
 
 if __name__ == '__main__':
-    load_model()
     # Use PORT environment variable (Railway sets this automatically)
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') != 'production'
